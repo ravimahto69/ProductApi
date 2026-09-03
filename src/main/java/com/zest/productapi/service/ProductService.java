@@ -9,6 +9,8 @@ import com.zest.productapi.repository.ProductRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDateTime;
 import java.util.stream.Collectors;
@@ -30,6 +32,10 @@ public class ProductService {
 
     public ProductResponse getProductById(Long id) {
         return mapToResponse(findProduct(id));
+    }
+
+    public Page<ProductResponse> getProducts(Pageable pageable) {
+        return productRepository.findAll(pageable).map(this::mapToResponse);
     }
 
     public ProductResponse updateProduct(Long id, ProductRequest request, String username) {
