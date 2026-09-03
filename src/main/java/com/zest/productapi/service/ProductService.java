@@ -1,11 +1,17 @@
+package com.zest.productapi.service;
+
+
+import com.zest.productapi.dto.ItemResponse;
 import com.zest.productapi.dto.ProductRequest;
 import com.zest.productapi.dto.ProductResponse;
 import com.zest.productapi.entity.Product;
 import com.zest.productapi.repository.ProductRepository;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -13,103 +19,54 @@ public class ProductService {
 
     private final ProductRepository productRepository;
 
-    public ProductResponse createProduct(
-            ProductRequest request,
-            String username) {
+    public ProductResponse createProduct(ProductRequest request, String username) {
+        Product product = new Product();
+        product.setProductName(request.getProductName());
+        product.setCreatedBy(username);
+        product.setCreatedOn(LocalDateTime.now());
 
-        Product product = Product.builder()
-                .productName(request.productName())
-                .createdBy(username)
-                .createdOn(LocalDateTime.now())
-                .build();
-
-        Product savedProduct =
-                productRepository.save(product);
-
-        return mapToResponse(savedProduct);
+        return mapToResponse(productRepository.save(product));
     }
-    @Service
-    @RequiredArgsConstructor
-    public class ProductService {
 
-        private final ProductRepository productRepository;
-
-        public ProductResponse createProduct(
-                ProductRequest request,
-                String username) {
-
-            Product product = Product.builder()
-                    .productName(request.productName())
-                    .createdBy(username)
-                    .createdOn(LocalDateTime.now())
-                    .build();
-
-            Product savedProduct =
-                    productRepository.save(product);
-
-            return mapToResponse(savedProduct);
-        }
-    }
-    private ProductResponse mapToResponse(Product product) {
-
-        return ProductResponse.builder()
-                .id(product.getId())
-                .productName(product.getProductName())
-                .createdBy(product.getCreatedBy())
-                .createdOn(product.getCreatedOn())
-                .modifiedBy(product.getModifiedBy())
-                .modifiedOn(product.getModifiedOn())
-                .build();
-    }
     public ProductResponse getProductById(Long id) {
-
-        Product product = productRepository
-                .findById(id)
-                .orElseThrow(
-                        () -> new ResourceNotFoundException(
-                                "Product not found with id: " + id
-                        )
-                );
-
-        return mapToResponse(product);
+        return mapToResponse(findProduct(id));
     }
-    public ProductResponse updateProduct(
-            Long id,
-            ProductRequest request,
-            String username) {
 
-        Product product = productRepository
-                .findById(id)
-                .orElseThrow(
-                        () -> new ResourceNotFoundException(
-                                "Product not found"
-                        )
-                );
-
-        product.setProductName(
-                request.productName()
-        );
-
+    public ProductResponse updateProduct(Long id, ProductRequest request, String username) {
+        Product product = findProduct(id);
+        product.setProductName(request.getProductName());
         product.setModifiedBy(username);
+        product.setModifiedOn(LocalDateTime.now());
 
-        product.setModifiedOn(
-                LocalDateTime.now()
-        );
-
-        return mapToResponse(
-                productRepository.save(product)
-        );
+        return mapToResponse(productRepository.save(product));
     }
+
     public void deleteProduct(Long id) {
+        productRepository.delete(findProduct(id));
+    }
 
-        Product product = productRepository
-                .findById(id)
-                .orElseThrow(
-                        () -> new ResourceNotFoundException(
-                                "Product not found"
-                        )
-                );
+    private Product findProduct(Long id) {
+        return productRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Product not found with id: " + id));
+    }
 
-        productRepository.delete(product);
+    private ProductResponse mapToResponse(Product product) {
+        ProductResponse response = new ProductResponse();
+        response.setId(Math.toIntExact(product.getId()));
+        response.setProductName(product.getProductName());
+        response.setCreatedBy(product.getCreatedBy());
+        response.setCreatedOn(product.getCreatedOn());
+        response.setModifiedBy(product.getModifiedBy());
+        response.setModifiedOn(product.getModifiedOn());
+        response.setItems(product.getItems().stream()
+                .map(item -> {
+                    ItemResponse itemResponse = new ItemResponse();
+                    itemResponse.setId(item.getId());
+                    itemResponse.setProductId(product.getId());
+                    itemResponse.setQuantity(item.getQuantity());
+                    return itemResponse;
+                })
+                .collect(Collectors.toList()));
+        return response;
     }
 }
